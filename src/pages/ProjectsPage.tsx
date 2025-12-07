@@ -16,10 +16,12 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
-  fetchAllCreativeVideos,
   fetchImagesFromFolder,
   fetchVideosFromFolder
 } from '../utils/fetchVideos';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { ref, listAll, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../firebase.ts';
 
 /* ====================================================
       TYPE DEFINITIONS
@@ -29,49 +31,39 @@ interface CreativeVideos {
   [key: string]: string[];
 }
 
-/* ====================================================
-      DESIGN SECTIONS
-==================================================== */
+interface CreativeCategory {
+  id: string;
+  title: {
+    fr: string;
+    ar: string;
+    en: string;
+  };
+  folder: string;
+  order: number;
+}
 
-const designSections = [
-  {
-    icon: Brush,
-    titleKey: 'design.section1.title',
-    items: [
-      { id: 'logo', galleryKey: 'logo', labelKey: 'services.design.logo' },
-      { id: 'flyer', galleryKey: 'brochure', labelKey: 'services.design.flyer' },
-      { id: 'ad', galleryKey: 'ads', labelKey: 'services.design.ad' },
-      { id: 'card', galleryKey: 'business-card', labelKey: 'services.design.card' },
-      { id: 'book-mag', galleryKey: 'book', labelKey: 'services.design.book' },
-    ],
-  },
+interface DesignItem {
+  id: string;
+  label: {
+    fr: string;
+    ar: string;
+    en: string;
+  };
+  galleryKey: string;
+  order: number;
+}
 
-  {
-    icon: Layout,
-    titleKey: 'design.section2.title',
-    items: [
-      { id: 'banner-rollup', galleryKey: 'rollup', labelKey: 'services.design.banner' },
-      { id: 'storefront-design', galleryKey: 'ads', labelKey: 'services.design.storefront' },
-      { id: 'car-wrapping', galleryKey: 'packaging', labelKey: 'services.design.wrapping' },
-      { id: 'packaging-all', galleryKey: 'packaging', labelKey: 'services.design.packaging' },
-    ],
-  },
-];
-
-/* ====================================================
-      CREATIVE LIST
-==================================================== */
-
-const creativeItems = [
-  { id: 'deplacements', key: 'deplacements', labelKey: 'creatives.item1' },
-  { id: 'fashion', key: 'fashion', labelKey: 'creatives.item2' },
-  { id: 'kitchen', key: 'kitchen', labelKey: 'creatives.item3' },
-  { id: 'decor', key: 'decor', labelKey: 'creatives.item4' },
-  { id: 'cosmetics', key: 'cosmetics', labelKey: 'creatives.item5' },
-  { id: 'kids', key: 'kids', labelKey: 'creatives.item6' },
-  { id: 'others', key: 'others', labelKey: 'creatives.item7' },
-  { id: 'montage', key: 'montage', labelKey: 'creatives.item8' },
-];
+interface DesignSection {
+  id: string;
+  title: {
+    fr: string;
+    ar: string;
+    en: string;
+  };
+  iconName: string;
+  order: number;
+  items: DesignItem[];
+}
 
 /* ====================================================
       DEV THEMES
@@ -184,6 +176,15 @@ const devThemeCategories = [
 ];
 
 /* ====================================================
+      ICON MAPPING
+==================================================== */
+
+const iconMap: Record<string, any> = {
+  Brush,
+  Layout,
+};
+
+/* ====================================================
       COMPONENT
 ==================================================== */
 
@@ -192,17 +193,10 @@ export default function Projects() {
   const isRTL = language === 'ar';
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
 
-  const [creativeVideosState, setCreativeVideosState] = useState<CreativeVideos>({
-    deplacements: [],
-    fashion: [],
-    kitchen: [],
-    decor: [],
-    cosmetics: [],
-    kids: [],
-    others: [],
-    montage: [],
-  });
+  const [creativeCategories, setCreativeCategories] = useState<CreativeCategory[]>([]);
+  const [creativeVideosState, setCreativeVideosState] = useState<CreativeVideos>({});
 
+  const [designSections, setDesignSections] = useState<DesignSection[]>([]);
   const [designImages, setDesignImages] = useState<Record<string, string[]>>({});
   const [sponsorImages, setSponsorImages] = useState<string[]>([]);
   const [sponsoringVideos, setSponsoringVideos] = useState<string[]>([]);
@@ -218,24 +212,141 @@ export default function Projects() {
   const [activeDesignItemId, setActiveDesignItemId] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadAllMedia = async () => {
-      const categories = ['deplacements', 'fashion', 'kitchen', 'decor', 'cosmetics', 'kids', 'others', 'montage'];
+    const loadCreativeCategories = async () => {
+      try {
+        const categoriesRef = collection(db, 'creativeCategories');
+        const q = query(categoriesRef, orderBy('order', 'asc'));
+        const snapshot = await getDocs(q);
 
-      const creativeVideos = await fetchAllCreativeVideos(categories);
-      setCreativeVideosState(creativeVideos);
+        const categories: CreativeCategory[] = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          categories.push({
+            id: doc.id,
+            title: data.title || { fr: '', ar: '', en: '' },
+            folder: data.folder,
+            order: data.order,
+          });
+        });
 
-      const galleryKeys = ['logo', 'business-card', 'book', 'ads', 'brochure', 'rollup', 'packaging', 'EVENT'];
+        setCreativeCategories(categories);
+      } catch (error) {
+        console.error('Error loading creative categories:', error);
+      }
+    };
+
+    loadCreativeCategories();
+  }, []);
+
+  useEffect(() => {
+    const loadDesignSections = async () => {
+      try {
+        const sectionsRef = collection(db, 'designSections');
+        const sectionsQuery = query(sectionsRef, orderBy('order', 'asc'));
+        const sectionsSnapshot = await getDocs(sectionsQuery);
+
+        const sections: DesignSection[] = [];
+
+        for (const sectionDoc of sectionsSnapshot.docs) {
+          const sectionData = sectionDoc.data();
+
+          const itemsRef = collection(db, `designSections/${sectionDoc.id}/items`);
+          const itemsQuery = query(itemsRef, orderBy('order', 'asc'));
+          const itemsSnapshot = await getDocs(itemsQuery);
+
+          const items: DesignItem[] = [];
+          itemsSnapshot.forEach((itemDoc) => {
+            const itemData = itemDoc.data();
+            items.push({
+              id: itemDoc.id,
+              label: itemData.label || { fr: '', ar: '', en: '' },
+              galleryKey: itemData.galleryKey || '',
+              order: itemData.order || 0,
+            });
+          });
+
+          sections.push({
+            id: sectionDoc.id,
+            title: sectionData.title || { fr: '', ar: '', en: '' },
+            iconName: sectionData.iconName || 'Brush',
+            order: sectionData.order || 0,
+            items,
+          });
+        }
+
+        setDesignSections(sections);
+      } catch (error) {
+        console.error('Error loading design sections:', error);
+      }
+    };
+
+    loadDesignSections();
+  }, []);
+
+  useEffect(() => {
+    if (designSections.length === 0) return;
+
+    const loadDesignImages = async () => {
+      const galleryKeys = new Set<string>();
+
+      designSections.forEach(section => {
+        section.items.forEach(item => {
+          if (item.galleryKey) {
+            galleryKeys.add(item.galleryKey);
+          }
+        });
+      });
+
       const designData: Record<string, string[]> = {};
 
       await Promise.all(
-        galleryKeys.map(async (key) => {
+        Array.from(galleryKeys).map(async (key) => {
           const images = await fetchImagesFromFolder(`images/design/${key}`);
           designData[key] = images;
         })
       );
 
       setDesignImages(designData);
+    };
 
+    loadDesignImages();
+  }, [designSections]);
+
+  useEffect(() => {
+    if (creativeCategories.length === 0) return;
+
+    const loadCreativeVideos = async () => {
+      try {
+        const videosData: CreativeVideos = {};
+
+        await Promise.all(
+          creativeCategories.map(async (category) => {
+            const folderRef = ref(storage, `videos/creatives/${category.folder}`);
+
+            try {
+              const result = await listAll(folderRef);
+              const urls = await Promise.all(
+                result.items.map((itemRef) => getDownloadURL(itemRef))
+              );
+              videosData[category.folder] = urls;
+            } catch (error) {
+              console.error(`Error loading videos for ${category.folder}:`, error);
+              videosData[category.folder] = [];
+            }
+          })
+        );
+
+        setCreativeVideosState(videosData);
+      } catch (error) {
+        console.error('Error loading creative videos:', error);
+      }
+    };
+
+    loadCreativeVideos();
+  }, [creativeCategories]);
+
+  useEffect(() => {
+    const loadOtherMedia = async () => {
       const [sponsors, sponsoringVids, socialVids] = await Promise.all([
         fetchImagesFromFolder('images/sponsor'),
         fetchVideosFromFolder('videos/sponsoring'),
@@ -247,19 +358,8 @@ export default function Projects() {
       setSocialVideos(socialVids);
     };
 
-    loadAllMedia();
+    loadOtherMedia();
   }, []);
-
-  const designGalleries: Record<string, string[]> = {
-    logo: designImages.logo || [],
-    'business-card': designImages['business-card'] || [],
-    book: designImages.book || [],
-    ads: designImages.ads || [],
-    brochure: designImages.brochure || [],
-    rollup: designImages.rollup || [],
-    packaging: designImages.packaging || [],
-    EVENT: designImages.EVENT || [],
-  };
 
   useEffect(() => {
     const videoMap = videoRefs.current;
@@ -356,6 +456,18 @@ export default function Projects() {
     );
   };
 
+  const getCreativeTitle = (category: CreativeCategory): string => {
+    return category.title?.[language as 'fr' | 'ar' | 'en'] || category.title?.fr || '';
+  };
+
+  const getTranslatedLabel = (item: DesignItem): string => {
+    return item.label?.[language as 'fr' | 'ar' | 'en'] || item.label?.fr || '';
+  };
+
+  const getTranslatedTitle = (section: DesignSection): string => {
+    return section.title?.[language as 'fr' | 'ar' | 'en'] || section.title?.fr || '';
+  };
+
   /* ====================================================
         MAIN RENDER
   ==================================================== */
@@ -414,15 +526,15 @@ export default function Projects() {
               </p>
 
               <ul className="space-y-3 md:space-y-4 mb-6">
-                {creativeItems.map((item) => {
-                  const active = activeCreativeId === item.id;
-                  const videos = creativeVideosState[item.key] || [];
+                {creativeCategories.map((category) => {
+                  const active = activeCreativeId === category.folder;
+                  const videos = creativeVideosState[category.folder] || [];
 
                   return (
-                    <li key={item.id}>
+                    <li key={category.folder}>
                       <button
                         type="button"
-                        onClick={() => setActiveCreativeId(active ? null : item.id)}
+                        onClick={() => setActiveCreativeId(active ? null : category.folder)}
                         className={`flex items-start w-full rounded-2xl px-3 py-3 transition
                           ${
                             active
@@ -441,7 +553,7 @@ export default function Projects() {
                             isRTL ? 'text-right' : 'text-left'
                           }`}
                         >
-                          {t(item.labelKey)}
+                          {getCreativeTitle(category)}
                         </span>
 
                         <MonitorPlay className="w-5 h-5 text-[#F15A24]" />
@@ -449,7 +561,7 @@ export default function Projects() {
 
                       {active && videos.length > 0 && (
                         <div className={`mt-4 ${isRTL ? 'mr-5' : 'ml-5'}`}>
-                          {renderVideoGrid(videos, `creative-${item.key}`)}
+                          {renderVideoGrid(videos, `creative-${category.folder}`)}
                         </div>
                       )}
                     </li>
@@ -487,23 +599,23 @@ export default function Projects() {
 
           {designOpen && (
             <div className="mt-6 space-y-8">
-              {designSections.map((section, idx) => {
-                const Icon = section.icon;
+              {designSections.map((section) => {
+                const IconComponent = iconMap[section.iconName] || Brush;
                 const sectionActiveItem = section.items.find(
                   (it) => it.id === activeDesignItemId
                 );
-                const images = sectionActiveItem && designGalleries[sectionActiveItem.galleryKey]
-                  ? designGalleries[sectionActiveItem.galleryKey]
+                const images = sectionActiveItem && designImages[sectionActiveItem.galleryKey]
+                  ? designImages[sectionActiveItem.galleryKey]
                   : [];
 
                 return (
-                  <div key={idx} className="bg-[#F7F7F7] rounded-3xl p-6 md:p-10 shadow-sm">
+                  <div key={section.id} className="bg-[#F7F7F7] rounded-3xl p-6 md:p-10 shadow-sm">
                     <div className="flex items-center mb-6">
                       <div className="w-10 h-10 bg-gradient-to-br from-[#F15A24] to-[#ff7e50] rounded-xl flex items-center justify-center">
-                        <Icon className="w-5 h-5 text-white" />
+                        <IconComponent className="w-5 h-5 text-white" />
                       </div>
                       <h3 className={`text-xl md:text-2xl font-bold ${isRTL ? 'mr-4' : 'ml-4'}`}>
-                        {t(section.titleKey)}
+                        {getTranslatedTitle(section)}
                       </h3>
                     </div>
 
@@ -523,7 +635,7 @@ export default function Projects() {
                                 isRTL ? 'ml-3' : 'mr-3'
                               }`} />
                               <span className="text-[#2B2B2B] text-base md:text-lg">
-                                {t(item.labelKey)}
+                                {getTranslatedLabel(item)}
                               </span>
                             </button>
                           </li>
@@ -535,7 +647,7 @@ export default function Projects() {
                       <div className="mt-8">
                         <p className="font-semibold text-sm">{t('design.examples')}</p>
                         <p className="text-sm text-[#F15A24] font-semibold mb-3">
-                          {t(sectionActiveItem.labelKey)}
+                          {getTranslatedLabel(sectionActiveItem)}
                         </p>
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
