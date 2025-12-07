@@ -8,6 +8,14 @@
       "path": "./tsconfig.node.json"
     }
   ],
-  "compilerOptions": {},
-  "extends": "expo/tsconfig.base"
+  "compilerOptions": {
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "jsx": "react-jsx"
+  }
 }
