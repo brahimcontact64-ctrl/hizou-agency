@@ -3,26 +3,26 @@
   "decor": [],
   "deplacements": [],
   "fashion": [
-    "https://storage.googleapis.com/website-84438/videos/creatives/fashion/bootss.mp4",
-    "https://storage.googleapis.com/website-84438/videos/creatives/fashion/Ensemble.mp4",
-    "https://storage.googleapis.com/website-84438/videos/creatives/fashion/Riverside.mp4",
-    "https://storage.googleapis.com/website-84438/videos/creatives/fashion/trensh.mp4"
+    "https://storage.googleapis.com/website-84438.firebasestorage.app/videos/creatives/fashion/bootss.mp4",
+    "https://storage.googleapis.com/website-84438.firebasestorage.app/videos/creatives/fashion/Ensemble.mp4",
+    "https://storage.googleapis.com/website-84438.firebasestorage.app/videos/creatives/fashion/Riverside.mp4",
+    "https://storage.googleapis.com/website-84438.firebasestorage.app/videos/creatives/fashion/trensh.mp4"
   ],
   "kids": [
-    "https://storage.googleapis.com/website-84438/videos/creatives/kids/1-1.MP4",
-    "https://storage.googleapis.com/website-84438/videos/creatives/kids/1-2.mp4",
-    "https://storage.googleapis.com/website-84438/videos/creatives/kids/1-3.mp4",
-    "https://storage.googleapis.com/website-84438/videos/creatives/kids/1-4.mp4",
-    "https://storage.googleapis.com/website-84438/videos/creatives/kids/1-5.mp4"
+    "https://storage.googleapis.com/website-84438.firebasestorage.app/videos/creatives/kids/1-1.MP4",
+    "https://storage.googleapis.com/website-84438.firebasestorage.app/videos/creatives/kids/1-2.mp4",
+    "https://storage.googleapis.com/website-84438.firebasestorage.app/videos/creatives/kids/1-3.mp4",
+    "https://storage.googleapis.com/website-84438.firebasestorage.app/videos/creatives/kids/1-4.mp4",
+    "https://storage.googleapis.com/website-84438.firebasestorage.app/videos/creatives/kids/1-5.mp4"
   ],
   "kitchen": [],
   "montage": [],
   "others": [
-    "https://storage.googleapis.com/website-84438/videos/creatives/others/1-1.mp4",
-    "https://storage.googleapis.com/website-84438/videos/creatives/others/1-2.mp4",
-    "https://storage.googleapis.com/website-84438/videos/creatives/others/1-3.mp4",
-    "https://storage.googleapis.com/website-84438/videos/creatives/others/1-4.MP4",
-    "https://storage.googleapis.com/website-84438/videos/creatives/others/1-5.mp4"
+    "https://storage.googleapis.com/website-84438.firebasestorage.app/videos/creatives/others/1-1.mp4",
+    "https://storage.googleapis.com/website-84438.firebasestorage.app/videos/creatives/others/1-2.mp4",
+    "https://storage.googleapis.com/website-84438.firebasestorage.app/videos/creatives/others/1-3.mp4",
+    "https://storage.googleapis.com/website-84438.firebasestorage.app/videos/creatives/others/1-4.MP4",
+    "https://storage.googleapis.com/website-84438.firebasestorage.app/videos/creatives/others/1-5.mp4"
   ],
   "social": [],
   "sponsoring": []

@@ -1,9 +1,10 @@
 // src/firebase.js
 import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
- apiKey: "AIzaSyBps0n_whlDmfMVLlivHBrdan7Z73ufVvo",
+  apiKey: "AIzaSyBps0n_whlDmfMVLlivHBrdan7Z73ufVvo",
   authDomain: "website-84438.firebaseapp.com",
   projectId: "website-84438",
   storageBucket: "website-84438",
@@ -13,4 +14,9 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
+
+export const db = getFirestore(app);
+
+
 export const storage = getStorage(app);

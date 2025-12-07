@@ -11,59 +11,56 @@ ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ============================================================
-// 🔥 Firebase Admin 
-// ============================================================
+// =======================================
+// 🔥 Firebase Admin
+// =======================================
 const serviceAccount = JSON.parse(
   fs.readFileSync(path.join(__dirname, "website-84438-firebase-adminsdk-fbsvc-c11051f141.json"))
 );
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  storageBucket: "website-84438",
+  storageBucket: "website-84438.firebasestorage.app",
 });
 
 const bucket = admin.storage().bucket();
 
-// ============================================================
-// 🔥 Local Folders
-// ============================================================
+// =======================================
+// 🔥 Local Videos Folder (نفس مسارك القديم)
+// =======================================
 const localFolder = path.join(__dirname, "src", "assets", "videos", "creatives");
 
-// Allowed extensions
-const VIDEO_EXT = [".mp4", ".mov", ".m4v", ".avi", ".webm"];
+// Allowed formats
+const VIDEO_EXT = [".mp4", ".mov", ".m4v"];
 
-/* ============================================================
-   🔥 1) Convert Video — FULL iOS FIX (H.264 + AAC)
-============================================================ */
-
+// =======================================
+// 🎬 FULL iOS SAFE VIDEO CONVERSION
+// =======================================
 async function convertVideo(inputPath, outputPath) {
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .outputOptions([
-        "-vf", "scale=-2:720",
-        "-preset veryfast",
-        "-profile:v baseline",
-        "-level 3.0",
+        "-vf scale=720:-2",
         "-pix_fmt yuv420p",
+        "-c:v libx264",
+        "-profile:v main",           
+        "-level 3.1",
+        "-preset medium",
+        "-crf 22",
         "-movflags +faststart",
-        "-crf 23",
-        "-g 30",
         "-r 30",
+        "-g 60",
+        "-c:a aac",
+        "-b:a 128k",
+        "-ac 2",
+        "-ar 44100"
       ])
-      .videoCodec("libx264")
-      .audioCodec("aac")
-      .audioChannels(2)
-      .audioBitrate("128k")
       .on("end", () => resolve(outputPath))
       .on("error", reject)
       .save(outputPath);
   });
 }
 
-/* ============================================================
-   🔥 2) Upload File to Firebase Storage
-============================================================ */
 
 async function uploadFile(category, filePath) {
   const fileName = path.basename(filePath);
@@ -76,18 +73,17 @@ async function uploadFile(category, filePath) {
 
   const destination = `videos/creatives/${category}/${fileName}`;
 
-  // temp folder
   const tempFolder = path.join(__dirname, "temp");
   if (!fs.existsSync(tempFolder)) fs.mkdirSync(tempFolder);
 
   const compressedPath = path.join(tempFolder, `${Date.now()}-${fileName}`);
 
-  console.log("🎬 Converting (iOS-safe):", fileName);
+  console.log("🎬 Converting (iOS Safe):", fileName);
 
   try {
     await convertVideo(filePath, compressedPath);
   } catch (err) {
-    console.error("❌ Conversion failed for:", fileName, err);
+    console.error("❌ Conversion failed:", fileName, err);
     return null;
   }
 
@@ -97,9 +93,14 @@ async function uploadFile(category, filePath) {
     await bucket.upload(compressedPath, {
       destination,
       public: true,
-      gzip: true,
+      metadata: {
+        contentType: "video/mp4",            
+        cacheControl: "public, max-age=86400",
+        contentDisposition: "inline",
+      },
     });
 
+    // 🔥 Google Cloud Public URL (iOS SAFE)
     const url = `https://storage.googleapis.com/${bucket.name}/${destination}`;
     console.log("✅ Uploaded:", url);
 
@@ -112,10 +113,6 @@ async function uploadFile(category, filePath) {
   }
 }
 
-/* ============================================================
-   🔥 3) Upload All + Keep Empty Folders in JSON
-============================================================ */
-
 async function uploadAll() {
   const result = {};
 
@@ -123,6 +120,7 @@ async function uploadAll() {
 
   for (const category of categories) {
     const categoryPath = path.join(localFolder, category);
+
     if (!fs.lstatSync(categoryPath).isDirectory()) continue;
 
     console.log(`\n📁 Category: ${category}`);
@@ -130,10 +128,7 @@ async function uploadAll() {
 
     const files = fs.readdirSync(categoryPath);
 
-    if (files.length === 0) {
-      console.log(`⚠️ Empty folder, adding to JSON: ${category}`);
-      continue;
-    }
+    if (files.length === 0) continue;
 
     for (const file of files) {
       const filePath = path.join(categoryPath, file);
@@ -143,7 +138,7 @@ async function uploadAll() {
   }
 
   fs.writeFileSync("videos.json", JSON.stringify(result, null, 2));
-  console.log("\n🎉 DONE — Videos converted, uploaded, JSON created!");
+  console.log("\n🎉 DONE — Fully iOS-safe videos uploaded!");
 }
 
 uploadAll();

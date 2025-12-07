@@ -15,7 +15,7 @@ const serviceAccount = JSON.parse(
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  storageBucket: "website-84438",
+  storageBucket: "website-84438.firebasestorage.app",
 });
 
 const bucket = admin.storage().bucket();
